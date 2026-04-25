@@ -52,13 +52,19 @@ type SystemStatus = {
 const PORT = Number(process.env.PORT ?? 8787)
 const CODEX_BIN = process.env.CODEX_BIN ?? 'codex'
 const APP_MODE = process.env.AETHERTALK_APP_MODE === 'desktop' ? 'desktop' : 'browser'
+const appRootDir = process.env.AETHERTALK_APP_ROOT_DIR ?? process.cwd()
+const helpFilePath = process.env.AETHERTALK_HELP_FILE ?? path.join(appRootDir, 'README.md')
 const TURN_DELAY_MS = 900
 const MAX_TURNS = 100
 const CONTEXT_MESSAGES = 12
 const TITLE_CONTEXT_MESSAGES = 24
 const app = express()
-const distDir = path.resolve(process.cwd(), 'dist')
-const dataDir = path.resolve(process.cwd(), 'data')
+const distDir = process.env.AETHERTALK_DIST_DIR
+  ? path.resolve(process.env.AETHERTALK_DIST_DIR)
+  : path.resolve(appRootDir, 'dist')
+const dataDir = process.env.AETHERTALK_DATA_DIR
+  ? path.resolve(process.env.AETHERTALK_DATA_DIR)
+  : path.resolve(appRootDir, 'data')
 const stateFile = path.join(dataDir, 'chats.json')
 
 const clients = new Set<Response>()
@@ -130,7 +136,7 @@ app.post('/api/system/open-storage', async (_request, response) => {
 })
 
 app.post('/api/system/open-guide', async (_request, response) => {
-  const launched = await openPathInFinder(path.join(process.cwd(), 'README.md'))
+  const launched = await openPathInFinder(helpFilePath)
   response.json({
     launched,
     status: await getSystemStatus(),
@@ -735,7 +741,7 @@ function runCommand(command: string, args: string[]) {
     stdout: string
   }>((resolve) => {
     const child = spawn(command, args, {
-      cwd: process.cwd(),
+      cwd: appRootDir,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })

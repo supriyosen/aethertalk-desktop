@@ -9,6 +9,14 @@ const isDev = !app.isPackaged
 const devUrl = 'http://127.0.0.1:5173/'
 const packagedPort = 47831
 const packagedUrl = `http://127.0.0.1:${packagedPort}/`
+const defaultPath = [
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  '/usr/bin',
+  '/bin',
+  '/usr/sbin',
+  '/sbin',
+].join(':')
 
 let backendProcess = null
 
@@ -96,12 +104,22 @@ async function startBackendProcess() {
     return
   }
 
-  const backendEntry = path.join(app.getAppPath(), 'dist-server', 'index.js')
+  const appRootPath = app.getAppPath()
+  const backendEntry = path.join(appRootPath, 'dist-server', 'index.js')
+  const userDataPath = app.getPath('userData')
+  const packagedDataDir = path.join(userDataPath, 'data')
+  const distPath = path.join(appRootPath, 'dist')
+  const helpFile = path.join(process.resourcesPath, 'AetherTalk Readme.txt')
   backendProcess = spawn(process.execPath, [backendEntry], {
     env: {
       ...process.env,
       AETHERTALK_APP_MODE: 'desktop',
+      AETHERTALK_APP_ROOT_DIR: userDataPath,
+      AETHERTALK_DATA_DIR: packagedDataDir,
+      AETHERTALK_DIST_DIR: distPath,
+      AETHERTALK_HELP_FILE: helpFile,
       ELECTRON_RUN_AS_NODE: '1',
+      PATH: process.env.PATH ? `${defaultPath}:${process.env.PATH}` : defaultPath,
       PORT: String(packagedPort),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
