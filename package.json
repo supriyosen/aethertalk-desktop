@@ -1,7 +1,7 @@
 {
   "name": "aethertalk-desktop",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": "Arya Sen",
   "description": "Desktop build and packaging repo for the local-first AetherTalk app.",
   "main": "electron/main.mjs",
@@ -51,12 +51,6 @@
   "build": {
     "appId": "com.aryasen.aethertalk",
     "productName": "AetherTalk",
-    "extraResources": [
-      {
-        "from": "README.md",
-        "to": "AetherTalk Readme.txt"
-      }
-    ],
     "files": [
       "dist/**/*",
       "dist-server/**/*",

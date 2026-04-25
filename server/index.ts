@@ -53,7 +53,7 @@ const PORT = Number(process.env.PORT ?? 8787)
 const CODEX_BIN = process.env.CODEX_BIN ?? 'codex'
 const APP_MODE = process.env.AETHERTALK_APP_MODE === 'desktop' ? 'desktop' : 'browser'
 const appRootDir = process.env.AETHERTALK_APP_ROOT_DIR ?? process.cwd()
-const helpFilePath = process.env.AETHERTALK_HELP_FILE ?? path.join(appRootDir, 'README.md')
+const setupGuideUrl = process.env.AETHERTALK_SETUP_GUIDE_URL ?? 'https://openai.com/codex/get-started/'
 const TURN_DELAY_MS = 900
 const MAX_TURNS = 100
 const CONTEXT_MESSAGES = 12
@@ -136,7 +136,7 @@ app.post('/api/system/open-storage', async (_request, response) => {
 })
 
 app.post('/api/system/open-guide', async (_request, response) => {
-  const launched = await openPathInFinder(helpFilePath)
+  const launched = await openExternalTarget(setupGuideUrl)
   response.json({
     launched,
     status: await getSystemStatus(),
@@ -658,8 +658,9 @@ function delay(ms: number) {
 }
 
 async function getSystemStatus(): Promise<SystemStatus> {
-  const codexCheck = await runCommand(CODEX_BIN, ['login', 'status'])
-  const codexInstalled = codexCheck.ok || codexCheck.errorCode !== 'ENOENT'
+  const resolvedCodexBin = resolveCodexBin()
+  const codexCheck = await runCommand(resolvedCodexBin ?? CODEX_BIN, ['login', 'status'])
+  const codexInstalled = resolvedCodexBin !== null || codexCheck.ok || codexCheck.errorCode !== 'ENOENT'
   const combinedOutput = `${codexCheck.stdout}\n${codexCheck.stderr}`.trim()
   const codexLoggedIn =
     codexInstalled &&
@@ -681,12 +682,16 @@ async function getSystemStatus(): Promise<SystemStatus> {
 }
 
 async function openCodexLogin() {
+  const resolvedCodexBin = resolveCodexBin()
+  const codexCommand = resolvedCodexBin ?? CODEX_BIN
+
   if (process.platform === 'darwin') {
     const scriptPath = path.join(os.tmpdir(), `aethertalk-codex-login-${crypto.randomUUID()}.command`)
     const scriptContents = [
       '#!/bin/zsh',
-      `cd ${shellQuote(process.cwd())}`,
-      'codex login',
+      `export PATH=${shellQuote(buildCodexPathEnv())}`,
+      `cd ${shellQuote(appRootDir)}`,
+      `${shellQuote(codexCommand)} login`,
       'echo ""',
       'echo "You can close this window after login finishes."',
       'exec zsh',
@@ -697,11 +702,19 @@ async function openCodexLogin() {
     return openDetached('open', ['-a', 'Terminal', scriptPath])
   }
 
-  return openDetached(CODEX_BIN, ['login'])
+  return openDetached(codexCommand, ['login'])
 }
 
 async function openCodexApp() {
-  return openDetached(CODEX_BIN, ['app'])
+  const resolvedCodexBin = resolveCodexBin()
+  if (process.platform === 'darwin') {
+    const openedApp = openDetached('open', ['-a', 'Codex'])
+    if (openedApp) {
+      return true
+    }
+  }
+
+  return openDetached(resolvedCodexBin ?? CODEX_BIN, ['app'])
 }
 
 async function openPathInFinder(targetPath: string) {
@@ -714,6 +727,22 @@ async function openPathInFinder(targetPath: string) {
   }
 
   return openDetached('xdg-open', [targetPath])
+}
+
+async function openExternalTarget(target: string) {
+  if (/^https?:\/\//i.test(target)) {
+    if (process.platform === 'darwin') {
+      return openDetached('open', [target])
+    }
+
+    if (process.platform === 'win32') {
+      return openDetached('cmd', ['/c', 'start', '', target])
+    }
+
+    return openDetached('xdg-open', [target])
+  }
+
+  return openPathInFinder(target)
 }
 
 function openDetached(command: string, args: string[]) {
@@ -731,6 +760,53 @@ function openDetached(command: string, args: string[]) {
 
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\\''`)}'`
+}
+
+function resolveCodexBin() {
+  const candidates = new Set<string>()
+  const pathEntries = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)
+
+  if (path.isAbsolute(CODEX_BIN)) {
+    candidates.add(CODEX_BIN)
+  } else {
+    for (const entry of pathEntries) {
+      candidates.add(path.join(entry, CODEX_BIN))
+    }
+  }
+
+  candidates.add('/Applications/Codex.app/Contents/Resources/codex')
+  candidates.add(path.join(os.homedir(), 'Applications', 'Codex.app', 'Contents', 'Resources', 'codex'))
+  candidates.add(path.join(os.homedir(), '.local', 'bin', 'codex'))
+  candidates.add('/opt/homebrew/bin/codex')
+  candidates.add('/usr/local/bin/codex')
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate
+    }
+  }
+
+  return null
+}
+
+function buildCodexPathEnv() {
+  const extraEntries = new Set<string>([
+    '/Applications/Codex.app/Contents/Resources',
+    path.join(os.homedir(), 'Applications', 'Codex.app', 'Contents', 'Resources'),
+    path.join(os.homedir(), '.local', 'bin'),
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+    '/usr/sbin',
+    '/sbin',
+  ])
+
+  for (const entry of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
+    extraEntries.add(entry)
+  }
+
+  return [...extraEntries].join(path.delimiter)
 }
 
 function runCommand(command: string, args: string[]) {

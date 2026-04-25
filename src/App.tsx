@@ -320,6 +320,22 @@ function App() {
 
   const canStop = !!selectedChat?.running
   const canDelete = !!selectedChat && !selectedChat.running
+  const needsCodexInstall = !!systemStatus && !systemStatus.checks.codexInstalled
+  const needsCodexLogin = !!systemStatus?.checks.codexInstalled && !systemStatus.checks.codexLoggedIn
+  const setupTitle = isSystemLoading
+    ? 'Checking your local setup'
+    : needsCodexInstall
+      ? 'Install Codex once on this Mac'
+      : needsCodexLogin
+        ? 'Open Codex and sign in once'
+        : 'Finishing local setup'
+  const setupCopy = isSystemLoading
+    ? 'AetherTalk is checking whether Codex is available and whether local chat storage is ready on this device.'
+    : needsCodexInstall
+      ? 'AetherTalk runs both agents with your local Codex install. Install Codex, then return here.'
+      : needsCodexLogin
+        ? 'Codex is already installed. Open it once, sign in with your own account, then return here.'
+        : 'Almost done. AetherTalk is checking the remaining local setup.'
 
   return (
     <main className="messages-app">
@@ -546,39 +562,33 @@ function App() {
               <p className="setup-kicker">
                 {systemStatus?.appMode === 'desktop' ? 'Desktop setup' : 'Local setup'}
               </p>
-              <h2>{isSystemLoading ? 'Checking your local setup' : 'AetherTalk needs a quick setup'}</h2>
-              <p className="setup-copy">
-                {isSystemLoading
-                  ? 'AetherTalk is checking whether Codex is installed, signed in, and ready to save chats locally on this device.'
-                  : 'Everything stays on this device. Before the agents can start, AetherTalk needs Codex installed, signed in, and ready for local chat storage.'}
-              </p>
+              <h2>{setupTitle}</h2>
+              <p className="setup-copy">{setupCopy}</p>
 
               <div className="setup-checks">
                 <article className={`setup-check ${systemStatus?.checks.codexInstalled ? 'ready' : 'pending'}`}>
-                  <span className="setup-check-badge">{systemStatus?.checks.codexInstalled ? 'Ready' : 'Needed'}</span>
-                  <h3>Codex installed</h3>
-                  <p>
-                    {systemStatus?.checks.codexInstalled
-                      ? 'The local Codex CLI is available on this machine.'
-                      : 'Install Codex on this Mac first so AetherTalk can run both agents locally.'}
-                  </p>
+                  <span className="setup-check-badge">
+                    {systemStatus?.checks.codexInstalled ? 'Done' : 'Step 1'}
+                  </span>
+                  <h3>Install Codex</h3>
+                  <p>Required once. AetherTalk uses your local Codex runtime for both agents.</p>
                 </article>
 
                 <article className={`setup-check ${systemStatus?.checks.codexLoggedIn ? 'ready' : 'pending'}`}>
-                  <span className="setup-check-badge">{systemStatus?.checks.codexLoggedIn ? 'Ready' : 'Needed'}</span>
-                  <h3>Codex signed in</h3>
-                  <p>
-                    {systemStatus?.checks.codexLoggedIn
-                      ? 'Codex is already signed in and ready to generate both sides of the conversation.'
-                      : 'Sign in once on this device so the desktop app can use your own local Codex access.'}
-                  </p>
+                  <span className="setup-check-badge">
+                    {systemStatus?.checks.codexLoggedIn ? 'Done' : 'Step 2'}
+                  </span>
+                  <h3>Sign in</h3>
+                  <p>Open Codex and sign in with your own account on this Mac.</p>
                 </article>
 
                 <article className={`setup-check ${systemStatus?.checks.storageReady ? 'ready' : 'pending'}`}>
-                  <span className="setup-check-badge">{systemStatus?.checks.storageReady ? 'Ready' : 'Checking'}</span>
-                  <h3>Local chat storage</h3>
+                  <span className="setup-check-badge">
+                    {systemStatus?.checks.storageReady ? 'Done' : 'Step 3'}
+                  </span>
+                  <h3>Start chatting</h3>
                   <p>
-                    Chats are stored only on this device at{' '}
+                    Chats stay only on this device at{' '}
                     <code>{systemStatus?.chatStoragePath ?? 'data/chats.json'}</code>.
                   </p>
                 </article>
@@ -594,7 +604,7 @@ function App() {
                     }}
                     disabled={systemAction !== null}
                   >
-                    {systemAction === 'guide' ? 'Opening guide...' : 'Open Setup Guide'}
+                    {systemAction === 'guide' ? 'Opening Codex page...' : 'Get Codex'}
                   </button>
                 ) : null}
 
@@ -603,24 +613,11 @@ function App() {
                     type="button"
                     className="imessage-button start-button"
                     onClick={() => {
-                      void runSystemAction('/api/system/open-codex-login', 'login')
-                    }}
-                    disabled={systemAction !== null}
-                  >
-                    {systemAction === 'login' ? 'Opening login...' : 'Sign In to Codex'}
-                  </button>
-                ) : null}
-
-                {systemStatus?.checks.codexInstalled ? (
-                  <button
-                    type="button"
-                    className="imessage-button ghost-button"
-                    onClick={() => {
                       void runSystemAction('/api/system/open-codex-app', 'app')
                     }}
                     disabled={systemAction !== null}
                   >
-                    {systemAction === 'app' ? 'Opening Codex...' : 'Open Codex App'}
+                    {systemAction === 'app' ? 'Opening Codex...' : 'Open Codex'}
                   </button>
                 ) : null}
 

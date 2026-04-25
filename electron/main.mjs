@@ -1,5 +1,6 @@
 import { app, BrowserWindow, nativeImage, shell } from 'electron'
 import { spawn } from 'node:child_process'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -10,6 +11,8 @@ const devUrl = 'http://127.0.0.1:5173/'
 const packagedPort = 47831
 const packagedUrl = `http://127.0.0.1:${packagedPort}/`
 const defaultPath = [
+  '/Applications/Codex.app/Contents/Resources',
+  `${os.homedir()}/.local/bin`,
   '/opt/homebrew/bin',
   '/usr/local/bin',
   '/usr/bin',
@@ -109,7 +112,6 @@ async function startBackendProcess() {
   const userDataPath = app.getPath('userData')
   const packagedDataDir = path.join(userDataPath, 'data')
   const distPath = path.join(appRootPath, 'dist')
-  const helpFile = path.join(process.resourcesPath, 'AetherTalk Readme.txt')
   backendProcess = spawn(process.execPath, [backendEntry], {
     env: {
       ...process.env,
@@ -117,7 +119,7 @@ async function startBackendProcess() {
       AETHERTALK_APP_ROOT_DIR: userDataPath,
       AETHERTALK_DATA_DIR: packagedDataDir,
       AETHERTALK_DIST_DIR: distPath,
-      AETHERTALK_HELP_FILE: helpFile,
+      AETHERTALK_SETUP_GUIDE_URL: 'https://openai.com/codex/get-started/',
       ELECTRON_RUN_AS_NODE: '1',
       PATH: process.env.PATH ? `${defaultPath}:${process.env.PATH}` : defaultPath,
       PORT: String(packagedPort),
